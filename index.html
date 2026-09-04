@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Spectra — Photo ⇄ Equation</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<header class="top">
+  <div class="top-in">
+    <div class="brand">Spectra <span>photo ⇄ equation</span></div>
+    <div class="top-right">
+      <span id="statusBox" class="status idle"><span class="dot"></span><span id="statusText">Waiting for a photo…</span></span>
+      <button id="btnReset" class="link" type="button">Reset</button>
+    </div>
+  </div>
+</header>
+
+<main class="wrap">
+  <section class="hero">
+    <h1>Turn a photo into an equation.<br>Turn it back.</h1>
+    <p>Real Fourier coefficients, computed live in your browser. Drag <b>K</b> from 1 to FULL and watch the picture rebuild frequency by frequency. Nothing leaves your device.</p>
+  </section>
+
+  <nav class="tabs">
+    <button id="tabPhoto" class="tab active" type="button">Photo → Equation</button>
+    <button id="tabEq" class="tab" type="button">Equation → Photo</button>
+  </nav>
+
+  <section id="panelPhoto" class="panel">
+    <div id="dropZone" class="drop">
+      <input type="file" id="fileInput" accept="image/*" hidden>
+      <div class="drop-t">Drop a photo here</div>
+      <div class="drop-s">or <button id="browseBtn" class="linkbtn" type="button">browse files</button> · JPG / PNG / WEBP · <button id="btnDemo" class="linkbtn" type="button">try a demo chord</button></div>
+    </div>
+
+    <div class="controls">
+      <div class="ctl">
+        <span class="ctl-label">Resolution</span>
+        <div class="seg" id="sizeSeg">
+          <button class="sizebtn" data-s="64" type="button">64</button>
+          <button class="sizebtn active" data-s="128" type="button">128</button>
+          <button class="sizebtn" data-s="256" type="button">256</button>
+        </div>
+      </div>
+      <div class="ctl grow">
+        <span class="ctl-label">Frequencies used · <b id="kVal">—</b> / <span id="kMax">—</span></span>
+        <input type="range" id="kSlider" min="1" max="128" value="64">
+      </div>
+      <div class="ctl btns">
+        <button id="kMin" class="chip" type="button">K=1</button>
+        <button id="kMid" class="chip" type="button">K=200</button>
+        <button id="kFull" class="chip" type="button">FULL</button>
+      </div>
+    </div>
+
+    <div id="workArea" class="hidden">
+      <div class="grid">
+        <figure><canvas id="viewOrig"></canvas><figcaption>Original <span id="origDims"></span></figcaption></figure>
+        <figure><canvas id="viewSpec" class="pix"></canvas><figcaption>Spectrum |C| · log</figcaption></figure>
+        <figure><canvas id="viewEq"></canvas><figcaption>Rebuilt · <span id="matchBadge">—</span></figcaption></figure>
+      </div>
+
+      <article class="card">
+        <div class="card-top">
+          <div>
+            <div class="kicker">The equation</div>
+            <div id="eqMeta" class="meta">—</div>
+          </div>
+          <code class="id">ID <span id="faceId">—</span></code>
+        </div>
+        <div id="katexBox" class="katex"></div>
+        <details>
+          <summary>Strongest coefficients (computed live)</summary>
+          <pre id="coeffTable" class="coeffs">—</pre>
+        </details>
+        <div class="row">
+          <button id="btnDownload" class="btn primary" type="button">Download equation (.json)</button>
+          <button id="btnExport" class="btn" type="button">Export card (.png)</button>
+          <button id="btnCopy" class="btn" type="button">Copy formula</button>
+        </div>
+        <p class="note">The <b>.json</b> holds all <span id="coeffTotalNote">—</span> real numbers and is the only rebuildable artifact. The formula is its display cover.</p>
+      </article>
+    </div>
+  </section>
+
+  <section id="panelEq" class="panel hidden">
+    <div class="card">
+      <div class="kicker">Equation → Photo</div>
+      <p class="meta">Drop the <b>.json</b> equation file, or paste its text. Legacy PNG strings are re-analysed into coefficients.</p>
+      <div class="row">
+        <input type="file" id="eqFile" accept=".json,application/json,.txt" hidden>
+        <button id="btnLoadFile" class="btn" type="button">Choose .json file</button>
+        <button id="btnSample" class="btn" type="button">Sample equation</button>
+        <button id="btnDevelop" class="btn primary" type="button">Develop photo</button>
+      </div>
+      <textarea id="eqInput" spellcheck="false" placeholder="Paste equation JSON here…"></textarea>
+      <div class="meta" id="eqStatus">Waiting for equation…</div>
+      <div class="out">
+        <canvas id="eqCanvas"></canvas>
+        <div id="eqEmpty" class="empty">Developed photo appears here.</div>
+      </div>
+      <div class="row">
+        <button id="btnDownloadRebuilt" class="btn" disabled type="button">Download rebuilt photo</button>
+      </div>
+    </div>
+  </section>
+
+  <footer class="foot">f(x,y) = (1/N) Σ F(u,v)·e<sup>+i2π(ux+vy)/S</sup> · exact at FULL K · 100% on-device</footer>
+</main>
+<script type="module" src="js/app.js"></script>
+</body>
+</html>
