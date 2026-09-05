@@ -1,136 +1,66 @@
-# FaceToMathsEquation
+# Spectra — Photo ⇄ Equation
 
-> **Every face has a unique system of parametric equations.** Upload a photo → get the mathematics that can redraw the exact face contour.
+> **Every picture is a chord.** Drop a photo → get its real Fourier equation → rebuild it pixel-perfect from the numbers alone.
 
-This project makes your idea rigorous: a face is not *one* short equation (photorealism cannot be captured that way), but a **finite system of closed parametric curves**, each with a provably complete Fourier representation. With all coefficients, reconstruction error → 0. With truncated `K`, you trade equation length vs. fidelity.
+Open `index.html` (or `python3 -m http.server 8000` → `http://localhost:8000`). No build step, no backend — 100% on-device.
 
-Runs **100% in the browser** — no photo leaves the device — plus a Python backend for batch processing and photorealistic field experiments.
+## How it works
 
----
-
-## Demo
-
-Open `index.html` in a modern browser (or serve via any static server). No build step.
-
-```bash
-# simplest
-python3 -m http.server 8000
-# then open http://localhost:8000
-```
-
-Upload a frontal, well-lit face photo. The app:
-
-1. Detects **468 landmarks** via MediaPipe Face Landmarker (wasm, GPU-accelerated)
-2. Groups landmarks into 9 features: face oval, left/right eye, left/right eyebrow, nose bridge+tip, nostrils, outer/inner lips
-3. For each feature, computes **Fourier descriptors**
+1. Your photo is cover-cropped to a square (`64`, `128`, or `256` — powers of two, so the FFT is exact) and forward-Fourier-transformed per channel:
    ```
-   z(t) = x(t) + i·y(t) = Σ_{k=-K}^{K} c_k · e^{i·k·ω·t},   t∈[0,1), ω=2π
-   c_k = (1/N) Σ_{n=0}^{N-1} z_n · e^{-i·2π·k·n/N}
+   F(u,v) = FFT₂(f),   f(x,y) = (1/N) Σ_u Σ_v F(u,v)·e^{+i2π(ux+vy)/S}
    ```
-4. Shows `K` slider (3 → 50 in browser, 100+ in Python) and renders **solely from equations** — proving the equations alone redraw the face
-5. Exports **LaTeX**, **JSON** (all coefficients + SHA-256 `Face Equation ID`), and **SVG**
+2. The **equation file** (`.json`) holds *only* those frequency coefficients — no image bytes. Verified: no PNG/data-URL markers in the payload.
+3. Drag **K** from 1 → FULL: the picture rebuilds by genuinely evaluating partial sums, from flat drone (K=1 = channel means) through sketch to exact.
+4. At FULL K the inverse FFT reproduces every pixel — round-trip MSE ≈ 1e-27 (floating-point zero).
+5. **Equation → Photo**: drop the `.json` back in and it develops through the inverse FFT. No original pixels involved.
 
-## What "exact" means — honest mathematics
-
-| Claim | Truth |
-|---|---|
-| *One equation redraws the exact photorealistic face* | **No.** An image is a function `I: [0,1]² → RGB`. Exactly reproducing texture needs an implicit neural field `f_θ(x,y) → RGB` (thousands of parameters). The Python folder demonstrates this path. |
-| *Contours can be exact* | **Yes, with all N coefficients** per feature. Fourier series of a discrete closed polygon is exactly invertible via DFT. Truncating to `K < N` gives a controlled approximation. `K≈15` is visually excellent; `K=N` is lossless for landmarks. |
-| *Is the equation unique?* | **Yes up to normalization.** After centering by `(cx,cy)` and scaling by face size, the coefficient vector is unique. We hash it → `Face Equation ID` (SHA-256). Two photos of the same person give *nearby* but not identical vectors (pose/expression vary) — as expected. |
-| *Single equation?* | **No — a system.** 8–10 parametric equations is the correct formalism, analogous to how a 3D mesh is a system. The app bundles them as one JSON/LaTeX system. |
-
-We chose rigor over hype. The UI explains this directly.
+Falsifiable proof: truncate to K=8 and the output degrades (MSE ~10⁴). If hidden pixels were used, K couldn't matter.
 
 ## Project structure
 
 ```
-FaceToMathsEquation/
-├── index.html          # Main app (zero backend)
+Spectra/
+├── index.html          # App (zero backend)
 ├── css/style.css
-├── js/app.js           # Fouriers + rendering + MediaPipe glue
+├── js/app.js           # FFT engine + UI (radix-2 FFT, synthesis, IFFT)
 ├── python/
-│   ├── face_to_equation.py  # Batch CLI, OpenCV + MediaPipe
+│   ├── face_to_equation.py  # Legacy contour backend (predates Spectra; kept for reference)
 │   └── requirements.txt
 └── README.md
 ```
 
-## Python backend
-
-For automated pipelines, higher `K`, or experiments with neural texture fields:
-
-```bash
-cd python
-pip install -r requirements.txt   # numpy, opencv-python, mediapipe
-
-# Synthetic demo (validates math without a photo)
-python face_to_equation.py --demo --K 20
-
-# Real photo
-python face_to_equation.py --image ../photo.jpg --K 30 --out ./output
-
-# Outputs in ./output:
-#   face-equation-<ID>.json  — full coefficient set
-#   face-equation-<ID>.tex   — LaTeX system
-#   face-equation-<ID>.png   — equation-only redraw
-#   comparison-<ID>.png      — original | redraw side-by-side
-#   landmarks.json           — raw 468 points
-```
-
-### Verification
-
-```bash
-python face_to_equation.py --demo --K 3   # expect RMSE ~0.02 (coarse)
-python face_to_equation.py --demo --K 50  # expect RMSE <0.001 (near-exact)
-```
-
-## Equation format (interoperable)
+## Equation format (v3)
 
 ```json
 {
-  "faceEquationId": "A3F9...01C4",
-  "K": 15,
-  "globalRMSE": 0.00312,
-  "normalization": {"cx":0.51,"cy":0.49,"scale":0.43},
-  "features": [{
-    "key":"faceOval", "N":36, "rmse":0.002,
-    "coeffs":[{"k":-15,"re":0.001,"im":-0.002,"mag":0.002,"phase": -1.1}, ...]
-  }]
+  "app": "spectra-patchbay", "version": 3, "S": 128, "id": "A3F9…01C4",
+  "form": "f(x,y) = (1/N) Σ_u Σ_v F(u,v)·exp(+i·2π(ux+vy)/S), F = FFT2(f)",
+  "channels": {
+    "R": {"re_b64": "…Float64 LE…", "im_b64": "…"},
+    "G": {...}, "B": {...}
+  }
 }
 ```
 
-**Redraw in any language:**
+Sizes: 64px ≈ 150KB · 128px ≈ 1MB · 256px ≈ 4MB of real numbers.
 
-```python
-# t in [0,1]
-x = sum(c.re*cos(2π*k*t) - c.im*sin(2π*k*t) for c,k in coeffs)
-y = sum(c.re*sin(2π*k*t) + c.im*cos(2π*k*t) for c,k in coeffs)
-X = x*scale + cx   # to 0-1 image coords
-Y = y*scale + cy
-```
+**Morph (expression as parameter):** patch photos A and B, move `t` — coefficients interpolate `F(t) = (1−t)·F_A + t·F_B`, endpoints exact by construction.
 
-For LaTeX, import the generated `.tex` — it is a ready `align` environment.
+## Honest limits
 
-## Texture / photorealism (advanced)
-
-True pixel-exact `I(x,y)` requires fitting a small MLP `f_θ: R²→R³` to the image (e.g., SIREN, 2–3 hidden layers, ~5k params). That *is* an equation — just a large one (weights are coefficients). The contour system here is the provable, interpretable foundation. If you want the neural field variant, open an issue — it fits in ~2 min per image on CPU.
-
-## Limitations & tips
-
-- **Frontal, single face, good light** works best. Profile, occlusion, or multiple faces degrades landmarks.
-- **Expression/pose changes the coefficients.** Uniqueness is per capture, not biometric ID. For identity-stable embedding, use FaceNet/ArcFace; this project is geometric.
-- **WASM download:** First load fetches ~10 MB MediaPipe assets from CDN. Offline → app falls back to procedural demo (still proves the math).
-
-## License
-
-MIT — use the equation format freely. If you publish work built on this, cite Fourier Descriptors (Persoon & Fu, 1977) and MediaPipe Face Mesh.
+- Exactness is *at the chosen resolution* (64/128/256). A short readable equation cannot hold a photo — information theory, not effort. The `.json` *is* the equation, all numbers included.
+- Square cover-crop only (FFT needs powers of two).
+- Legacy `CHITRA-SUTRA-v1` PNG strings still paste, but are re-analysed into real coefficients and labeled as such.
 
 ## Roadmap
 
-- [ ] Blendshape-aware equations (expression as parameter)
-- [ ] SIREN texture field toggle in browser (WebNN)
-- [ ] 3D morphable model equation (x,y,z)
+- [x] Real FFT both ways with coefficient-only equation files
+- [x] K-dial partial-sum proof (output obeys K)
+- [x] Expression morph via coefficient interpolation (`Morph` tab)
+- [ ] SIREN neural-field toggle — **dropped**: a meaningful in-browser fit needs minutes of training for blobby quality; would read as broken next to exact FFT. Revisit with WebGPU.
+- [ ] 3D morphable model — **dropped**: needs 3D priors/data this project doesn't have; would be theater, not math.
 
----
+## License
 
-Built to honor the idea that *every face deserves its own mathematics* — without cheating about what "exact" means.
-# Spectra
+MIT.

@@ -29,6 +29,7 @@
   <nav class="tabs">
     <button id="tabPhoto" class="tab active" type="button">Photo → Equation</button>
     <button id="tabEq" class="tab" type="button">Equation → Photo</button>
+    <button id="tabMorph" class="tab" type="button">Morph A⇄B</button>
   </nav>
 
   <section id="panelPhoto" class="panel">
@@ -106,6 +107,27 @@
       </div>
       <div class="row">
         <button id="btnDownloadRebuilt" class="btn" disabled type="button">Download rebuilt photo</button>
+      </div>
+    </div>
+  </section>
+
+  <section id="panelMorph" class="panel hidden">
+    <div class="card">
+      <div class="kicker">Expression morph — F(t) = (1−t)·F<sub>A</sub> + t·F<sub>B</sub>, then IFFT</div>
+      <p class="meta">Patch two photos (e.g. neutral + smile). Endpoints are exact by construction; <span id="morphMse">—</span></p>
+      <div class="row">
+        <input type="file" id="fileA" accept="image/*" hidden>
+        <input type="file" id="fileB" accept="image/*" hidden>
+        <button id="btnPickA" class="btn" type="button">Patch A: <span id="nameA">no photo</span></button>
+        <button id="btnPickB" class="btn" type="button">Patch B: <span id="nameB">no photo</span></button>
+      </div>
+      <div class="ctl" style="margin-top:12px">
+        <span class="ctl-label">Expression parameter t · <b id="morphVal">—</b></span>
+        <input type="range" id="morphSlider" min="0" max="100" value="0">
+      </div>
+      <div class="out">
+        <canvas id="morphView"></canvas>
+        <div id="morphEmpty" class="empty">Patch A and B to morph between their equations.</div>
       </div>
     </div>
   </section>

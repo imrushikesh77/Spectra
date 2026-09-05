@@ -11,8 +11,21 @@ const statusText = $('statusText');
 const btnReset = $('btnReset');
 const tabPhoto = $('tabPhoto');
 const tabEq = $('tabEq');
+const tabMorph = $('tabMorph');
 const panelPhoto = $('panelPhoto');
 const panelEq = $('panelEq');
+const panelMorph = $('panelMorph');
+const fileA = $('fileA');
+const fileB = $('fileB');
+const btnPickA = $('btnPickA');
+const btnPickB = $('btnPickB');
+const nameA = $('nameA');
+const nameB = $('nameB');
+const morphView = $('morphView');
+const morphSlider = $('morphSlider');
+const morphVal = $('morphVal');
+const morphMse = $('morphMse');
+const morphEmpty = $('morphEmpty');
 const workArea = $('workArea');
 const viewOrig = $('viewOrig');
 const viewSpec = $('viewSpec');
@@ -574,14 +587,80 @@ btnReset.addEventListener('click', () => {
   setStatus('Waiting for a photo…', 'idle');
   window.scrollTo({ top: 0, behavior: 'smooth' });
 });
-tabPhoto.addEventListener('click', () => {
-  tabPhoto.classList.add('active'); tabEq.classList.remove('active');
-  panelPhoto.classList.remove('hidden'); panelEq.classList.add('hidden');
-});
-tabEq.addEventListener('click', () => {
-  tabEq.classList.add('active'); tabPhoto.classList.remove('active');
-  panelEq.classList.remove('hidden'); panelPhoto.classList.add('hidden');
-});
+function showTab(which) {
+  for (const [tab, panel, on] of [[tabPhoto, panelPhoto, which === 0], [tabEq, panelEq, which === 1], [tabMorph, panelMorph, which === 2]]) {
+    tab.classList.toggle('active', on);
+    panel.classList.toggle('hidden', !on);
+  }
+}
+tabPhoto.addEventListener('click', () => showTab(0));
+tabEq.addEventListener('click', () => showTab(1));
+tabMorph.addEventListener('click', () => showTab(2));
+
+/* ---------------- morph: expression as parameter ----------------
+   F(t) = (1−t)·F_A + t·F_B, rebuilt with the genuine inverse FFT.
+   t=0 reproduces A exactly, t=1 reproduces B exactly. */
+let morphA = null; // {S,FR,FG,FB,src}
+let morphB = null;
+let morphTimer = null;
+async function patchMorphSide(which, file) {
+  if (!file) return;
+  setStatus(`Patching ${which}…`, 'loading');
+  try {
+    const img = await loadImageFile(file);
+    const size = morphA && which === 'B' ? morphA.S : morphB && which === 'A' ? morphB.S : S;
+    const bmp = rasterizeSquare(img, size);
+    const src = channelsOf(bmp);
+    const rec = {
+      S: size,
+      FR: forwardFFT2D(src.R), FG: forwardFFT2D(src.G), FB: forwardFFT2D(src.B),
+      src,
+    };
+    if (which === 'A') { morphA = rec; nameA.textContent = file.name.slice(0, 18); }
+    else { morphB = rec; nameB.textContent = file.name.slice(0, 18); }
+    if (morphA && morphB && morphA.S === morphB.S) {
+      // endpoint verification, once per patch pair (exact by construction)
+      const a0 = inverseFull(morphA.FR, morphA.FG, morphA.FB, morphA.S);
+      const b1 = inverseFull(morphB.FR, morphB.FG, morphB.FB, morphB.S);
+      const e0 = mseOf(morphA.src.R, morphA.src.G, morphA.src.B, a0.outR, a0.outG, a0.outB);
+      const e1 = mseOf(morphB.src.R, morphB.src.G, morphB.src.B, b1.outR, b1.outG, b1.outB);
+      morphMse.textContent = `endpoints exact: MSE(t=0)=${e0.toExponential(1)}, MSE(t=1)=${e1.toExponential(1)}`;
+      setStatus(`Patched ${which} at ${size}×${size} — drag t to morph`, 'ready');
+    } else {
+      setStatus(`Patched ${which} at ${size}×${size} — patch the other side`, 'ready');
+    }
+    rebuildMorph();
+  } catch (e) {
+    console.error(e);
+    setStatus(e.message || 'Could not patch photo', 'error');
+  }
+}
+function rebuildMorph() {
+  if (!morphA || !morphB) return;
+  if (morphA.S !== morphB.S) { morphMse.textContent = 're-patch both sides (size changed)'; return; }
+  clearTimeout(morphTimer);
+  morphTimer = setTimeout(() => {
+    const t = (parseInt(morphSlider.value, 10) || 0) / 100;
+    const { S, FR: A, FG: Ag, FB: Ab } = morphA;
+    const { FR: B, FG: Bg, FB: Bb } = morphB;
+    const N = S * S;
+    const blend = (FA, FB) => {
+      const re = new Float64Array(N), im = new Float64Array(N);
+      for (let i = 0; i < N; i++) { re[i] = (1 - t) * FA.re[i] + t * FB.re[i]; im[i] = (1 - t) * FA.im[i] + t * FB.im[i]; }
+      return { re, im };
+    };
+    const { outR, outG, outB } = inverseFull(
+      blend(A, B), blend(Ag, Bg), blend(Ab, Bb), S);
+    paintChannels(morphView, outR, outG, outB);
+    morphEmpty.style.display = 'none';
+    morphVal.textContent = 't=' + t.toFixed(2);
+  }, 60);
+}
+btnPickA.addEventListener('click', () => fileA.click());
+btnPickB.addEventListener('click', () => fileB.click());
+fileA.addEventListener('change', (e) => patchMorphSide('A', e.target.files[0]));
+fileB.addEventListener('change', (e) => patchMorphSide('B', e.target.files[0]));
+morphSlider.addEventListener('input', rebuildMorph);
 btnLoadFile.addEventListener('click', () => eqFile.click());
 eqFile.addEventListener('change', async (e) => {
   const f = e.target.files[0];

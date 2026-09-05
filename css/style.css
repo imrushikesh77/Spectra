@@ -27,7 +27,8 @@ html,body{margin:0;padding:0;background:var(--bg);color:var(--ink);
 .hero{padding:34px 0 4px}
 .hero h1{margin:0;font-size:clamp(30px,5vw,46px);letter-spacing:-.03em;line-height:1.05;font-weight:700}
 .hero p{margin:10px 0 0;color:var(--muted);font-size:15px;max-width:60ch}
-.tabs{display:grid;grid-template-columns:1fr 1fr;gap:6px;background:#ECECE6;border-radius:12px;padding:5px;margin-top:18px}
+.tabs{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;background:#ECECE6;border-radius:12px;padding:5px;margin-top:18px}
+@media(max-width:560px){.tabs{grid-template-columns:1fr}}
 .tab{appearance:none;border:0;background:transparent;border-radius:8px;padding:11px;font:700 14px "Space Grotesk",sans-serif;color:var(--muted);cursor:pointer}
 .tab.active{background:var(--card);color:var(--ink);box-shadow:0 1px 4px rgba(0,0,0,.1)}
 .panel{margin-top:16px}
